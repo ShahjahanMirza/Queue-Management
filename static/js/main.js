@@ -7,9 +7,10 @@ new Vue({
         isRunning: false,
         currentTime: 0,
         servers: [],
-        queue: [],
-        customerSummary: [],
-        queueMetrics: null
+        queues: [],
+        serverSummaries: [],
+        overallMetrics: null,
+        selectedQueue: 0
     },
     computed: {
         formattedTime() {
@@ -26,8 +27,8 @@ new Vue({
                     this.fetchStatus();
                 });
         },
-        customerEnter() {
-            axios.post('/api/enter')
+        customerEnter(queueIndex) {
+            axios.post('/api/enter', { queueIndex })
                 .then(() => this.fetchStatus());
         },
         customerLeave(serverIndex) {
@@ -52,7 +53,7 @@ new Vue({
                         }
                         return server;
                     });
-                    this.queue = response.data.queue;
+                    this.queues = response.data.queues;
                     this.currentTime = response.data.currentTime;
                     this.isRunning = response.data.isRunning;
                     
@@ -70,8 +71,8 @@ new Vue({
         fetchSummary() {
             axios.get('/api/summary')
                 .then(response => {
-                    this.customerSummary = response.data.customerSummary;
-                    this.queueMetrics = response.data.queueMetrics;
+                    this.serverSummaries = response.data.serverSummaries;
+                    this.overallMetrics = response.data.overallMetrics;
                 });
         },
         startTimer() {
@@ -85,10 +86,10 @@ new Vue({
             const remainingSeconds = seconds % 60;
             return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
         },
-        downloadCustomerEntries() {
-            window.location.href = '/api/download/customers';
+        downloadServerCustomers(serverIndex) {
+            window.location.href = `/api/download/customers/${serverIndex}`;
         },
-        downloadStatistics() {
+        downloadAllMetrics() {
             window.location.href = '/api/download/metrics';
         },
         resetSimulation() {
@@ -98,15 +99,20 @@ new Vue({
                     this.isRunning = false;
                     this.currentTime = 0;
                     this.servers = [];
-                    this.queue = [];
-                    this.customerSummary = [];
-                    this.queueMetrics = null;
+                    this.queues = [];
+                    this.serverSummaries = [];
+                    this.overallMetrics = null;
                     clearInterval(this.timer);
                 });
+        },
+        getQueueLength(queueIndex) {
+            return this.queues[queueIndex] ? this.queues[queueIndex].length : 0;
+        },
+        formatMetricValue(value) {
+            return typeof value === 'number' ? value.toFixed(2) : value;
         }
     },
     created() {
-        // Check if the simulation is already running when the page loads
         axios.get('/api/status')
             .then(response => {
                 if (response.data.isRunning) {
