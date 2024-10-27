@@ -1,0 +1,89 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Queue Management System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div id="app">
+        <h1>Queue Management System</h1>
+        <transition name="fade">
+            <div id="setup" v-if="!setupComplete">
+                <label for="numServers">Number of servers:</label>
+                <input type="number" id="numServers" v-model="numServers" min="1" max="10">
+                <button @click="initializeSimulation">Start Simulation</button>
+            </div>
+        </transition>
+        <transition name="fade">
+            <div id="simulation" v-if="setupComplete">
+                <div v-if="isRunning">
+                    <button @click="customerEnter">Customer Enter</button>
+                    <button @click="stopSimulation">Stop Simulation</button>
+                    <p>Simulation Time: {% raw %}{{ formattedTime }}{% endraw %}</p>
+                    <h2>Servers Status</h2>
+                    <transition-group name="slide" tag="div" class="servers">
+                        <div v-for="(server, index) in servers" :key="index" class="server" :class="{ 'new-customer': server && server.isNew }">
+                            <h3>Server {% raw %}{{ index + 1 }}{% endraw %}</h3>
+                            <p v-if="server">Customer: {% raw %}{{ server.id }}{% endraw %}</p>
+                            <p v-else>Empty</p>
+                            <button v-if="server" @click="customerLeave(index)">Leave</button>
+                        </div>
+                    </transition-group>
+                    <h2>Queue</h2>
+                    <p v-if="queue.length > 0">{% raw %}{{ queue.join(', ') }}{% endraw %}</p>
+                    <p v-else>Empty</p>
+                </div>
+                <div v-else>
+                    <h2>Customer Summary</h2>
+                    <table v-if="customerSummary.length > 0">
+                        <thead>
+                            <tr>
+                                <th>Customer ID</th>
+                                <th>Arrival Time</th>
+                                <th>Waiting Time</th>
+                                <th>Service Time</th>
+                                <th>Total Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="customer in customerSummary" :key="customer.id">
+                                <td>{% raw %}{{ customer.id }}{% endraw %}</td>
+                                <td>{% raw %}{{ formatTime(customer.arrivalTime) }}{% endraw %}</td>
+                                <td>{% raw %}{{ formatTime(customer.waitingTime) }}{% endraw %}</td>
+                                <td>{% raw %}{{ formatTime(customer.serviceTime) }}{% endraw %}</td>
+                                <td>{% raw %}{{ formatTime(customer.totalTime) }}{% endraw %}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <p v-else>No data available. Run the simulation to generate customer data.</p>
+                    <h2>Queue Metrics</h2>
+                    <table v-if="queueMetrics">
+                        <thead>
+                            <tr>
+                                <th>Metric</th>
+                                <th>Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="(value, key) in queueMetrics" :key="key">
+                                <td>{% raw %}{{ key }}{% endraw %}</td>
+                                <td>{% raw %}{{ value }}{% endraw %}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <button @click="downloadCustomerEntries">Download Customer Entries CSV</button>
+                    <button @click="downloadStatistics">Download Statistics CSV</button>
+                    <button @click="resetSimulation">Reset Simulation</button>
+                </div>
+            </div>
+        </transition>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
