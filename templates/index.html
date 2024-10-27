@@ -1,16 +1,15 @@
-<!-- templates/index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Queue Management System</title>
+    <title>Multi-Queue Management System</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
     <div id="app">
-        <h1>Queue Management System</h1>
+        <h1>Multi-Queue Management System</h1>
         <transition name="fade">
             <div id="setup" v-if="!setupComplete">
                 <label for="numServers">Number of servers:</label>
@@ -21,63 +20,107 @@
         <transition name="fade">
             <div id="simulation" v-if="setupComplete">
                 <div v-if="isRunning">
-                    <button @click="customerEnter">Customer Enter</button>
-                    <button @click="stopSimulation">Stop Simulation</button>
-                    <p>Simulation Time: {% raw %}{{ formattedTime }}{% endraw %}</p>
-                    <h2>Servers Status</h2>
-                    <transition-group name="slide" tag="div" class="servers">
-                        <div v-for="(server, index) in servers" :key="index" class="server" :class="{ 'new-customer': server && server.isNew }">
-                            <h3>Server {% raw %}{{ index + 1 }}{% endraw %}</h3>
-                            <p v-if="server">Customer: {% raw %}{{ server.id }}{% endraw %}</p>
-                            <p v-else>Empty</p>
-                            <button v-if="server" @click="customerLeave(index)">Leave</button>
+                    <div class="simulation-controls">
+                        <button @click="stopSimulation">Stop Simulation</button>
+                        <p>Simulation Time: {% raw %}{{ formattedTime }}{% endraw %}</p>
+                    </div>
+
+                    <div class="system-container">
+                        <div v-for="(server, serverIndex) in servers" :key="'server-'+serverIndex" class="server-section">
+                            <div class="server-header">
+                                <h3>Server {% raw %}{{ serverIndex + 1 }}{% endraw %}</h3>
+                            </div>
+                            
+                            <div class="server" :class="{ 'new-customer': server && server.isNew }">
+                                <p v-if="server">Customer: {% raw %}{{ server.id }}{% endraw %}</p>
+                                <p v-else>Empty</p>
+                                <button v-if="server" @click="customerLeave(serverIndex)">Leave</button>
+                            </div>
+
+                            <div class="queue-section">
+                                <h4>Queue {% raw %}{{ serverIndex + 1 }}{% endraw %}</h4>
+                                <button @click="customerEnter(serverIndex)">Add Customer</button>
+                                <div class="queue-display">
+                                    <p v-if="queues[serverIndex] && queues[serverIndex].length">
+                                        {% raw %}{{ queues[serverIndex].join(', ') }}{% endraw %}
+                                    </p>
+                                    <p v-else>Empty</p>
+                                </div>
+                                <p class="queue-length">Length: {% raw %}{{ getQueueLength(serverIndex) }}{% endraw %}</p>
+                            </div>
                         </div>
-                    </transition-group>
-                    <h2>Queue</h2>
-                    <p v-if="queue.length > 0">{% raw %}{{ queue.join(', ') }}{% endraw %}</p>
-                    <p v-else>Empty</p>
+                    </div>
                 </div>
-                <div v-else>
-                    <h2>Customer Summary</h2>
-                    <table v-if="customerSummary.length > 0">
-                        <thead>
-                            <tr>
-                                <th>Customer ID</th>
-                                <th>Arrival Time</th>
-                                <th>Waiting Time</th>
-                                <th>Service Time</th>
-                                <th>Total Time</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-for="customer in customerSummary" :key="customer.id">
-                                <td>{% raw %}{{ customer.id }}{% endraw %}</td>
-                                <td>{% raw %}{{ formatTime(customer.arrivalTime) }}{% endraw %}</td>
-                                <td>{% raw %}{{ formatTime(customer.waitingTime) }}{% endraw %}</td>
-                                <td>{% raw %}{{ formatTime(customer.serviceTime) }}{% endraw %}</td>
-                                <td>{% raw %}{{ formatTime(customer.totalTime) }}{% endraw %}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                    <p v-else>No data available. Run the simulation to generate customer data.</p>
-                    <h2>Queue Metrics</h2>
-                    <table v-if="queueMetrics">
-                        <thead>
-                            <tr>
-                                <th>Metric</th>
-                                <th>Value</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-for="(value, key) in queueMetrics" :key="key">
-                                <td>{% raw %}{{ key }}{% endraw %}</td>
-                                <td>{% raw %}{{ value }}{% endraw %}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                    <button @click="downloadCustomerEntries">Download Customer Entries CSV</button>
-                    <button @click="downloadStatistics">Download Statistics CSV</button>
-                    <button @click="resetSimulation">Reset Simulation</button>
+                <div v-else class="results-section">
+                    <div class="server-summaries">
+                        <div v-for="summary in serverSummaries" :key="'summary-'+summary.serverIndex" class="server-summary">
+                            <h3>Server {% raw %}{{ summary.serverIndex + 1 }}{% endraw %} Summary</h3>
+                            
+                            <h4>Metrics</h4>
+                            <table class="metrics-table">
+                                <thead>
+                                    <tr>
+                                        <th>Metric</th>
+                                        <th>Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="(value, key) in summary.metrics" :key="key">
+                                        <td>{% raw %}{{ key }}{% endraw %}</td>
+                                        <td>{% raw %}{{ formatMetricValue(value) }}{% endraw %}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            <h4>Customer Details</h4>
+                            <table class="customer-table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Arrival</th>
+                                        <th>Wait</th>
+                                        <th>Service</th>
+                                        <th>Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="customer in summary.customerSummary" :key="customer.id">
+                                        <td>{% raw %}{{ customer.id }}{% endraw %}</td>
+                                        <td>{% raw %}{{ formatTime(customer.arrivalTime) }}{% endraw %}</td>
+                                        <td>{% raw %}{{ formatTime(customer.waitingTime) }}{% endraw %}</td>
+                                        <td>{% raw %}{{ formatTime(customer.serviceTime) }}{% endraw %}</td>
+                                        <td>{% raw %}{{ formatTime(customer.totalTime) }}{% endraw %}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <button @click="downloadServerCustomers(summary.serverIndex)">
+                                Download Server {% raw %}{{ summary.serverIndex + 1 }}{% endraw %} Data
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="overall-metrics">
+                        <h3>Overall System Metrics</h3>
+                        <table v-if="overallMetrics">
+                            <thead>
+                                <tr>
+                                    <th>Metric</th>
+                                    <th>Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="(value, key) in overallMetrics" :key="key">
+                                    <td>{% raw %}{{ key }}{% endraw %}</td>
+                                    <td>{% raw %}{{ formatMetricValue(value) }}{% endraw %}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button @click="downloadAllMetrics">Download All Metrics</button>
+                        <button @click="resetSimulation">Reset Simulation</button>
+                    </div>
                 </div>
             </div>
         </transition>
